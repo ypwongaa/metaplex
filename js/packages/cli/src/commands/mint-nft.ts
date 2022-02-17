@@ -1,9 +1,3 @@
-import {
-  createAssociatedTokenAccountInstruction,
-  createMetadataInstruction,
-  createMasterEditionInstruction,
-  createUpdateMetadataInstruction,
-} from '../helpers/instructions';
 import { sendTransactionWithRetryWithKeypair } from '../helpers/transactions';
 import {
   getTokenWallet,
@@ -11,11 +5,13 @@ import {
   getMasterEdition,
 } from '../helpers/accounts';
 import * as anchor from '@project-serum/anchor';
-import { Creator, METADATA_SCHEMA } from '../helpers/schema';
-import { serialize } from 'borsh';
 import { TOKEN_PROGRAM_ID } from '../helpers/constants';
 import fetch from 'node-fetch';
-import { MintLayout, Token } from '@solana/spl-token';
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  MintLayout,
+  Token,
+} from '@solana/spl-token';
 import {
   Keypair,
   Connection,
@@ -25,13 +21,14 @@ import {
 } from '@solana/web3.js';
 import log from 'loglevel';
 import {
-  CreateMetadataV2Args,
-  UpdateMetadataV2Args,
-  CreateMasterEditionV3Args,
   DataV2,
   Collection,
   Uses,
   VerifyCollection,
+  CreateMetadataV2,
+  CreateMasterEditionV3,
+  UpdateMetadataV2,
+  Creator,
 } from '@metaplex-foundation/mpl-token-metadata';
 
 export const createMetadata = async (
@@ -75,8 +72,8 @@ export const createMetadata = async (
     creator =>
       new Creator({
         address: creator.address,
+        verified: verifyCreators ? true : false,
         share: creator.share,
-        verified: verifyCreators ? 1 : 0,
       }),
   );
   return new DataV2({
@@ -122,7 +119,7 @@ export const mintNFT = async (
 
   // Generate a mint
   const mint = anchor.web3.Keypair.generate();
-  const instructions: TransactionInstruction[] = [];
+  let instructions: TransactionInstruction[] = [];
   const signers: anchor.web3.Keypair[] = [mint, walletKeypair];
 
   instructions.push(
@@ -148,37 +145,31 @@ export const mintNFT = async (
     wallet.publicKey,
     mint.publicKey,
   );
+
   instructions.push(
-    createAssociatedTokenAccountInstruction(
+    Token.createAssociatedTokenAccountInstruction(
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+      TOKEN_PROGRAM_ID,
+      mint.publicKey,
       userTokenAccoutAddress,
       wallet.publicKey,
       wallet.publicKey,
-      mint.publicKey,
     ),
   );
 
   // Create metadata
   const metadataAccount = await getMetadata(mint.publicKey);
-  let txnData = Buffer.from(
-    serialize(
-      new Map([
-        DataV2.SCHEMA,
-        ...METADATA_SCHEMA,
-        ...CreateMetadataV2Args.SCHEMA,
-      ]),
-      new CreateMetadataV2Args({ data, isMutable: mutableMetadata }),
-    ),
-  );
-
-  instructions.push(
-    createMetadataInstruction(
-      metadataAccount,
-      mint.publicKey,
-      wallet.publicKey,
-      wallet.publicKey,
-      wallet.publicKey,
-      txnData,
-    ),
+  instructions = instructions.concat(
+    new CreateMetadataV2(
+      { feePayer: wallet.publicKey },
+      {
+        metadata: metadataAccount,
+        metadataData: data,
+        updateAuthority: wallet.publicKey,
+        mint: mint.publicKey,
+        mintAuthority: wallet.publicKey,
+      },
+    ).instructions,
   );
 
   instructions.push(
@@ -194,28 +185,37 @@ export const mintNFT = async (
 
   // Create master edition
   const editionAccount = await getMasterEdition(mint.publicKey);
-  txnData = Buffer.from(
-    serialize(
-      new Map([
-        DataV2.SCHEMA,
-        ...METADATA_SCHEMA,
-        ...CreateMasterEditionV3Args.SCHEMA,
-      ]),
-      new CreateMasterEditionV3Args({ maxSupply: new anchor.BN(maxSupply) }),
-    ),
+
+  instructions = instructions.concat(
+    new CreateMasterEditionV3(
+      {
+        feePayer: wallet.publicKey,
+      },
+      {
+        edition: editionAccount,
+        metadata: metadataAccount,
+        mint: mint.publicKey,
+        mintAuthority: wallet.publicKey,
+        updateAuthority: wallet.publicKey,
+        maxSupply: new anchor.BN(maxSupply),
+      },
+    ).instructions,
   );
 
-  instructions.push(
-    createMasterEditionInstruction(
-      metadataAccount,
-      editionAccount,
-      mint.publicKey,
-      wallet.publicKey,
-      wallet.publicKey,
-      wallet.publicKey,
-      txnData,
-    ),
-  );
+  if (!mutableMetadata) {
+    instructions = instructions.concat(
+      new UpdateMetadataV2(
+        {},
+        {
+          metadata: metadataAccount,
+          metadataData: data,
+          updateAuthority: walletKeypair.publicKey,
+          primarySaleHappened: null,
+          isMutable: false,
+        },
+      ).instructions,
+    );
+  }
 
   const res = await sendTransactionWithRetryWithKeypair(
     connection,
@@ -231,7 +231,7 @@ export const mintNFT = async (
   }
 
   // Force wait for max confirmations
-  await connection.getParsedConfirmedTransaction(res.txid, 'confirmed');
+  await connection.getParsedTransaction(res.txid, 'confirmed');
   log.info('NFT created', res.txid);
   log.info('\n\nNFT: Mint Address is ', mint.publicKey.toBase58());
   return metadataAccount;
@@ -257,21 +257,16 @@ export const updateMetadata = async (
 
   const metadataAccount = await getMetadata(mintKey);
   const signers: anchor.web3.Keypair[] = [];
-  const value = new UpdateMetadataV2Args({
-    data,
-    updateAuthority: walletKeypair.publicKey.toBase58(),
-    primarySaleHappened: null,
-    isMutable: true,
-  });
-  const txnData = Buffer.from(serialize(METADATA_SCHEMA, value));
-
-  const instructions = [
-    createUpdateMetadataInstruction(
-      metadataAccount,
-      walletKeypair.publicKey,
-      txnData,
-    ),
-  ];
+  const instructions = new UpdateMetadataV2(
+    {},
+    {
+      metadata: metadataAccount,
+      metadataData: data,
+      updateAuthority: walletKeypair.publicKey,
+      primarySaleHappened: null,
+      isMutable: true,
+    },
+  ).instructions;
 
   // Execute transaction
   const txid = await sendTransactionWithRetryWithKeypair(

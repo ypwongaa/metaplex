@@ -4944,16 +4944,7 @@
     "@solana/web3.js" "^1.31.0"
     bs58 "^4.0.1"
 
-"@metaplex-foundation/mpl-token-metadata@1.1.0":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@metaplex-foundation/mpl-token-metadata/-/mpl-token-metadata-1.1.0.tgz#1d5dd89d8b0a0e32d060c8d01056e4a5cbedd499"
-  integrity sha512-4tF+hO5H6eYJ49H72nvuID2nrD54X4yCxqKhbWLxqAI7v5vHSCH2QFVUnqbj3+P4ydxrNyof9MQm3qlzY8KU3g==
-  dependencies:
-    "@metaplex-foundation/mpl-core" "^0.0.2"
-    "@solana/spl-token" "^0.1.8"
-    "@solana/web3.js" "^1.31.0"
-
-"@metaplex-foundation/mpl-token-metadata@^1.1.0":
+"@metaplex-foundation/mpl-token-metadata@1.2.4", "@metaplex-foundation/mpl-token-metadata@^1.1.0":
   version "1.2.4"
   resolved "https://registry.yarnpkg.com/@metaplex-foundation/mpl-token-metadata/-/mpl-token-metadata-1.2.4.tgz#b764c7bafb17d8a8733d5094abe0350de8120bd8"
   integrity sha512-FI+VOI5ctlny4UiotvF/xGcSHuXYO0ihgR/GnZfwF5hJ+dx/fhsKmOZsABshMBKUpANhU/3O2TIM5scAGExTEw==

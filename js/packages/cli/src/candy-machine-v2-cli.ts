@@ -42,6 +42,7 @@ import { updateFromCache } from './commands/updateFromCache';
 import { StorageType } from './helpers/storage-type';
 import { getType } from 'mime';
 import { escapeRegExp } from 'lodash';
+import { setCollection } from './commands/set-collection';
 program.version('0.0.2');
 const supportedImageTypes = {
   'image/png': 1,
@@ -857,6 +858,22 @@ programCommand('mint_one_token')
     const cacheContent = loadCache(cacheName, env);
     const candyMachine = new PublicKey(cacheContent.program.candyMachine);
     const tx = await mintV2(keypair, env, candyMachine, rpcUrl);
+
+    log.info('mint_one_token finished', tx);
+  });
+programCommand('set_collection')
+  .option(
+    '-r, --rpc-url <string>',
+    'custom rpc url since this is a heavy command',
+  )
+  .action(async (directory, cmd) => {
+    const { keypair, env, cacheName, rpcUrl } = cmd.opts();
+
+    const cacheContent = loadCache(cacheName, env);
+    const candyMachine = new PublicKey(cacheContent.program.candyMachine);
+    const walletKeyPair = loadWalletKey(keypair);
+    const anchorProgram = await loadCandyProgramV2(walletKeyPair, env, rpcUrl);
+    const tx = await setCollection(walletKeyPair, anchorProgram, candyMachine);
 
     log.info('mint_one_token finished', tx);
   });

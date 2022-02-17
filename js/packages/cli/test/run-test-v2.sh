@@ -4,18 +4,19 @@
 #
 # To suppress prompts, you will need to set/export the following variables:
 #
-ENV_URL="mainnet-beta"
-RPC="https://ssc-dao.genesysgo.net/" # mainnet-beta
-STORAGE="arweave-sol"
+# ENV_URL="mainnet-beta"
+# RPC="https://ssc-dao.genesysgo.net/" # mainnet-beta
+# RPC="https://api.metaplex.solana.com/"
+# STORAGE="arweave-sol"
 
-# ENV_URL="devnet"
-# RPC="https://psytrbhymqlkfrhudd.dev.genesysgo.net:8899/" # devnet
-# STORAGE="arweave"
+ENV_URL="devnet"
+RPC="https://psytrbhymqlkfrhudd.dev.genesysgo.net:8899/" # devnet
+STORAGE="arweave"
 
-ITEMS=50
+ITEMS=10
 MULTIPLE=0
 
-RESET="N"
+RESET="Y"
 EXT="png"
 CLOSE="Y"
 CHANGE="Y"
@@ -289,8 +290,7 @@ read -r -d '' METADATA <<-EOM
             "share": 100
         }],
         "files": [{"uri":"%s.%s", "type":"image/%s"}]
-    },
-    "collection": { "name": "Candy Machine CLI", "family": "Candy Machine CLI"}
+    }
 }
 EOM
 

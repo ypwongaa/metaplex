@@ -310,6 +310,12 @@ export async function mintV2(
   const metadataAddress = await getMetadata(mint.publicKey);
   const masterEdition = await getMasterEdition(mint.publicKey);
 
+  // TODO: Check if collection PDA is empty
+  // if not empty, set mint to the PDA.
+  // Then grab metadata and master from that mint
+  // then grab collection authority record
+  // then add all those in order to the remaining accounts
+
   const [candyMachineCreator, creatorBump] = await getCandyMachineCreator(
     candyMachineAddress,
   );

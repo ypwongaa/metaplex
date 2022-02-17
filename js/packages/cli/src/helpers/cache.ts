@@ -19,6 +19,7 @@ export function loadCache(
   legacy: boolean = false,
 ) {
   const path = cachePath(env, cacheName, cPath, legacy);
+  if (!legacy) console.log('Looking at cache file: ', path);
 
   if (!fs.existsSync(path)) {
     if (!legacy) {
