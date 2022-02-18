@@ -1,8 +1,11 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import {
+  CollectionData,
   getAtaForMint,
   getCandyMachineAddress,
   getCandyMachineCreator,
+  getCollectionAuthorityRecordPDA,
+  getCollectionPDA,
   getMasterEdition,
   getMetadata,
   getTokenWallet,
@@ -310,6 +313,37 @@ export async function mintV2(
   const metadataAddress = await getMetadata(mint.publicKey);
   const masterEdition = await getMasterEdition(mint.publicKey);
 
+  const collectionPDA = await getCollectionPDA(candyMachineAddress);
+  const collectionPDAAccount =
+    await anchorProgram.provider.connection.getAccountInfo(collectionPDA);
+
+  if (collectionPDAAccount) {
+    try {
+      const collectionData = (await anchorProgram.account.collectionPda.fetch(
+        collectionPDA,
+      )) as CollectionData;
+      const collectionAuthorityRecord = await getCollectionAuthorityRecordPDA(
+        mint.publicKey,
+        collectionPDA,
+      );
+      const collectionMint = collectionData.collectionMint;
+      if (collectionMint) {
+        const collectionMetadata = await getMetadata(collectionMint);
+        const collectionMasterEdition = await getMasterEdition(collectionMint);
+        remainingAccounts.push(
+          ...[
+            collectionPDA,
+            collectionMint,
+            collectionMetadata,
+            collectionMasterEdition,
+            collectionAuthorityRecord,
+          ],
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
   // TODO: Check if collection PDA is empty
   // if not empty, set mint to the PDA.
   // Then grab metadata and master from that mint

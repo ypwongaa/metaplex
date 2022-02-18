@@ -144,8 +144,32 @@ export async function setCollection(
   const collectionData: CollectionData = {
     collectionMint: mint.publicKey,
   };
+  await sendTransactionWithRetryWithKeypair(
+    anchorProgram.provider.connection,
+    walletKeypair,
+    instructions,
+    signers,
+  );
 
-  instructions.push(
+  // const finished = await anchorProgram.rpc.setCollection(collectionData, {
+  //     accounts: {
+  //         candyMachine: candyMachineAddress,
+  //         authority: wallet.publicKey,
+  //         collectionPda: collectionPDA,
+  //         payer: wallet.publicKey,
+  //         systemProgram: SystemProgram.programId,
+  //         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+  //         metadata: metadataAddress,
+  //         mint: mint.publicKey,
+  //         edition: masterEdition,
+  //         collectionAuthorityRecord: collectionAuthorityRecord,
+  //         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+  //     },
+  //     // signers: [payerWallet, candyAccount],
+  //     remainingAccounts: undefined,
+  // });
+
+  instructions = [
     await anchorProgram.instruction.setCollection(collectionData, {
       accounts: {
         candyMachine: candyMachineAddress,
@@ -161,7 +185,7 @@ export async function setCollection(
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
       },
     }),
-  );
+  ];
 
   const finished = (
     await sendTransactionWithRetryWithKeypair(
