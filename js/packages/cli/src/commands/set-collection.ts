@@ -1,6 +1,5 @@
 import { PublicKey, SystemProgram } from '@solana/web3.js';
 import {
-  CollectionData,
   getCollectionAuthorityRecordPDA,
   getCollectionPDA,
   getMasterEdition,
@@ -90,8 +89,8 @@ export async function setCollection(
 
   const metadataAddress = await getMetadata(mint.publicKey);
   const masterEdition = await getMasterEdition(mint.publicKey);
-  const collectionPDA = await getCollectionPDA(candyMachineAddress);
-  const collectionAuthorityRecord = await getCollectionAuthorityRecordPDA(
+  const [collectionPDA] = await getCollectionPDA(candyMachineAddress);
+  const [collectionAuthorityRecord] = await getCollectionAuthorityRecordPDA(
     mint.publicKey,
     collectionPDA,
   );
@@ -141,9 +140,6 @@ export async function setCollection(
     ).instructions,
   );
 
-  const collectionData: CollectionData = {
-    collectionMint: mint.publicKey,
-  };
   await sendTransactionWithRetryWithKeypair(
     anchorProgram.provider.connection,
     walletKeypair,
@@ -170,7 +166,7 @@ export async function setCollection(
   // });
 
   instructions = [
-    await anchorProgram.instruction.setCollection(collectionData, {
+    await anchorProgram.instruction.setCollection(1, {
       accounts: {
         candyMachine: candyMachineAddress,
         authority: wallet.publicKey,

@@ -237,13 +237,11 @@ export const getCandyMachineCreator = async (
 
 export const getCollectionPDA = async (
   candyMachineAddress: anchor.web3.PublicKey,
-): Promise<anchor.web3.PublicKey> => {
-  return (
-    await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from('collection'), candyMachineAddress.toBuffer()],
-      CANDY_MACHINE_PROGRAM,
-    )
-  )[0];
+): Promise<[anchor.web3.PublicKey, number]> => {
+  return await anchor.web3.PublicKey.findProgramAddress(
+    [Buffer.from('collection'), candyMachineAddress.toBuffer()],
+    CANDY_MACHINE_PROGRAM,
+  );
 };
 export interface CollectionData {
   collectionMint: null | anchor.web3.PublicKey;
@@ -437,7 +435,7 @@ export const mintOneToken = async (
   const metadataAddress = await getMetadata(mint.publicKey);
   const masterEdition = await getMasterEdition(mint.publicKey);
 
-  const collectionPDA = await getCollectionPDA(candyMachineAddress);
+  const [collectionPDA] = await getCollectionPDA(candyMachineAddress);
   const collectionPDAAccount =
     await candyMachine.program.provider.connection.getAccountInfo(
       collectionPDA,

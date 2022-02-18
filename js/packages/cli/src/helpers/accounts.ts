@@ -112,10 +112,6 @@ export interface CandyMachineData {
   }[];
 }
 
-export interface CollectionData {
-  collectionMint: null | web3.PublicKey;
-}
-
 export const createCandyMachineV2 = async function (
   anchorProgram: anchor.Program,
   payerWallet: Keypair,
@@ -417,31 +413,27 @@ export const getMetadata = async (
 
 export const getCollectionPDA = async (
   candyMachineAddress: anchor.web3.PublicKey,
-): Promise<anchor.web3.PublicKey> => {
-  return (
-    await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from('collection'), candyMachineAddress.toBuffer()],
-      CANDY_MACHINE_PROGRAM_V2_ID,
-    )
-  )[0];
+): Promise<[anchor.web3.PublicKey, number]> => {
+  return await anchor.web3.PublicKey.findProgramAddress(
+    [Buffer.from('collection'), candyMachineAddress.toBuffer()],
+    CANDY_MACHINE_PROGRAM_V2_ID,
+  );
 };
 
 export const getCollectionAuthorityRecordPDA = async (
   mint: anchor.web3.PublicKey,
   newAuthority: anchor.web3.PublicKey,
-): Promise<anchor.web3.PublicKey> => {
-  return (
-    await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        mint.toBuffer(),
-        Buffer.from('collection_authority'),
-        newAuthority.toBuffer(),
-      ],
-      TOKEN_METADATA_PROGRAM_ID,
-    )
-  )[0];
+): Promise<[anchor.web3.PublicKey, number]> => {
+  return await anchor.web3.PublicKey.findProgramAddress(
+    [
+      Buffer.from('metadata'),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      mint.toBuffer(),
+      Buffer.from('collection_authority'),
+      newAuthority.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID,
+  );
 };
 
 export const getMasterEdition = async (

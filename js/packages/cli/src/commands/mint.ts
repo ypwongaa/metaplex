@@ -1,6 +1,5 @@
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import {
-  CollectionData,
   getAtaForMint,
   getCandyMachineAddress,
   getCandyMachineCreator,
@@ -313,20 +312,19 @@ export async function mintV2(
   const metadataAddress = await getMetadata(mint.publicKey);
   const masterEdition = await getMasterEdition(mint.publicKey);
 
-  const collectionPDA = await getCollectionPDA(candyMachineAddress);
+  const collectionPDA = (await getCollectionPDA(candyMachineAddress))[0];
   const collectionPDAAccount =
     await anchorProgram.provider.connection.getAccountInfo(collectionPDA);
 
   if (collectionPDAAccount) {
     try {
-      const collectionData = (await anchorProgram.account.collectionPda.fetch(
+      const collectionMint = (await anchorProgram.account.collectionPda.fetch(
         collectionPDA,
-      )) as CollectionData;
+      )) as null | PublicKey;
       const collectionAuthorityRecord = await getCollectionAuthorityRecordPDA(
         mint.publicKey,
         collectionPDA,
       );
-      const collectionMint = collectionData.collectionMint;
       if (collectionMint) {
         const collectionMetadata = await getMetadata(collectionMint);
         const collectionMasterEdition = await getMasterEdition(collectionMint);
