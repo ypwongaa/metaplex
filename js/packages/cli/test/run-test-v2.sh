@@ -15,9 +15,9 @@ STORAGE="arweave"
 ITEMS=2
 MULTIPLE=0
 
-RESET="N"
+RESET="Y"
 EXT="png"
-CLOSE="N"
+CLOSE="Y"
 CHANGE="N"
 TEST_IMAGE="N"
 
@@ -468,14 +468,14 @@ echo ""
 cyn "1. Uploading assets and creating the candy machine"
 echo ""
 mag ">>>"
-# upload
+upload
 mag "<<<"
 echo ""
 
 cyn "2. Verifying upload"
 echo ""
 mag ">>>"
-# verify_upload
+verify_upload
 mag "<<<"
 
 echo ""
