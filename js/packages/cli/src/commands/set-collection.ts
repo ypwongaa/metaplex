@@ -24,11 +24,11 @@ import log from 'loglevel';
 import { Program } from '@project-serum/anchor';
 
 export async function setCollection(
-  walletKeypair: anchor.web3.Keypair,
+  walletKeyPair: anchor.web3.Keypair,
   anchorProgram: Program,
   candyMachineAddress: PublicKey,
   // collectionMint?: PublicKey,
-): Promise<string> {
+) {
   const mint = anchor.web3.Keypair.generate();
   // if (!collectionMint) {
 
@@ -36,7 +36,7 @@ export async function setCollection(
 
   // }
 
-  const wallet = new anchor.Wallet(walletKeypair);
+  const wallet = new anchor.Wallet(walletKeyPair);
 
   const userTokenAccountAddress = await Token.getAssociatedTokenAddress(
     ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -49,7 +49,7 @@ export async function setCollection(
     candyMachineAddress,
   );
 
-  const signers = [mint, walletKeypair];
+  const signers = [mint, walletKeyPair];
   log.info('here');
   let instructions = [
     anchor.web3.SystemProgram.createAccount({
@@ -87,13 +87,11 @@ export async function setCollection(
     ),
   ];
 
-  const metadataAddress = await getMetadata(mint.publicKey);
-  const masterEdition = await getMasterEdition(mint.publicKey);
-  const [collectionPDA] = await getCollectionPDA(candyMachineAddress);
-  const [collectionAuthorityRecord] = await getCollectionAuthorityRecordPDA(
-    mint.publicKey,
-    collectionPDA,
-  );
+  const metadataPubkey = await getMetadata(mint.publicKey);
+  const masterEditionPubkey = await getMasterEdition(mint.publicKey);
+  const [collectionPDAPubkey] = await getCollectionPDA(candyMachineAddress);
+  const [collectionAuthorityRecordPubkey] =
+    await getCollectionAuthorityRecordPDA(mint.publicKey, collectionPDAPubkey);
 
   const data = new DataV2({
     symbol: candyMachine.data.symbol ?? '',
@@ -115,7 +113,7 @@ export async function setCollection(
     new CreateMetadataV2(
       { feePayer: wallet.publicKey },
       {
-        metadata: metadataAddress,
+        metadata: metadataPubkey,
         metadataData: data,
         updateAuthority: wallet.publicKey,
         mint: mint.publicKey,
@@ -130,8 +128,8 @@ export async function setCollection(
         feePayer: wallet.publicKey,
       },
       {
-        edition: masterEdition,
-        metadata: metadataAddress,
+        edition: masterEditionPubkey,
+        metadata: metadataPubkey,
         mint: mint.publicKey,
         mintAuthority: wallet.publicKey,
         updateAuthority: wallet.publicKey,
@@ -140,56 +138,64 @@ export async function setCollection(
     ).instructions,
   );
 
-  await sendTransactionWithRetryWithKeypair(
-    anchorProgram.provider.connection,
-    walletKeypair,
-    instructions,
-    signers,
-  );
+  if (
+    !(await anchorProgram.account.collectionPda.fetchNullable(
+      collectionPDAPubkey,
+    ))
+  ) {
+    instructions.push(
+      await anchorProgram.instruction.initializeCollectionPda({
+        accounts: {
+          candyMachine: candyMachineAddress,
+          authority: wallet.publicKey,
+          collectionPda: collectionPDAPubkey,
+          payer: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+      }),
+    );
+  }
 
-  // const finished = await anchorProgram.rpc.setCollection(collectionData, {
-  //     accounts: {
-  //         candyMachine: candyMachineAddress,
-  //         authority: wallet.publicKey,
-  //         collectionPda: collectionPDA,
-  //         payer: wallet.publicKey,
-  //         systemProgram: SystemProgram.programId,
-  //         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-  //         metadata: metadataAddress,
-  //         mint: mint.publicKey,
-  //         edition: masterEdition,
-  //         collectionAuthorityRecord: collectionAuthorityRecord,
-  //         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-  //     },
-  //     // signers: [payerWallet, candyAccount],
-  //     remainingAccounts: undefined,
-  // });
-
-  instructions = [
-    await anchorProgram.instruction.setCollection(1, {
+  instructions.push(
+    await anchorProgram.instruction.setCollection({
       accounts: {
         candyMachine: candyMachineAddress,
         authority: wallet.publicKey,
-        collectionPda: collectionPDA,
+        collectionPda: collectionPDAPubkey,
         payer: wallet.publicKey,
         systemProgram: SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        metadata: metadataAddress,
+        metadata: metadataPubkey,
         mint: mint.publicKey,
-        edition: masterEdition,
-        collectionAuthorityRecord: collectionAuthorityRecord,
+        edition: masterEditionPubkey,
+        collectionAuthorityRecord: collectionAuthorityRecordPubkey,
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
       },
     }),
-  ];
+  );
 
-  const finished = (
+  log.info('Candy machine address: ', candyMachineAddress.toBase58());
+  log.info('Metadata address: ', metadataPubkey.toBase58());
+  log.info('Metadata authority: ', wallet.publicKey.toBase58());
+  log.info('Master edition address: ', masterEditionPubkey.toBase58());
+  log.info('Collection PDA address: ', collectionPDAPubkey.toBase58());
+  log.info(
+    'Collection authority record address: ',
+    collectionAuthorityRecordPubkey.toBase58(),
+  );
+
+  const txId = (
     await sendTransactionWithRetryWithKeypair(
       anchorProgram.provider.connection,
-      walletKeypair,
+      walletKeyPair,
       instructions,
       signers,
     )
   ).txid;
-  return finished;
+  const toReturn = {
+    collectionMetadata: metadataPubkey,
+    collectionPDA: collectionPDAPubkey,
+    txId,
+  };
+  return toReturn;
 }

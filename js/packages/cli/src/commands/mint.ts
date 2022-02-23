@@ -177,8 +177,7 @@ export async function mintV2(
   const candyMachine: any = await anchorProgram.account.candyMachine.fetch(
     candyMachineAddress,
   );
-
-  const remainingAccounts = [];
+  let remainingAccounts = [];
   const signers = [mint, userKeyPair];
   const cleanupInstructions = [];
   const instructions = [
@@ -320,23 +319,42 @@ export async function mintV2(
     try {
       const collectionMint = (await anchorProgram.account.collectionPda.fetch(
         collectionPDA,
-      )) as null | PublicKey;
-      const collectionAuthorityRecord = await getCollectionAuthorityRecordPDA(
-        mint.publicKey,
-        collectionPDA,
-      );
+      )) as { mint: PublicKey };
+      const collectionAuthorityRecord = (
+        await getCollectionAuthorityRecordPDA(mint.publicKey, collectionPDA)
+      )[0];
       if (collectionMint) {
-        const collectionMetadata = await getMetadata(collectionMint);
-        const collectionMasterEdition = await getMasterEdition(collectionMint);
-        remainingAccounts.push(
-          ...[
-            collectionPDA,
-            collectionMint,
-            collectionMetadata,
-            collectionMasterEdition,
-            collectionAuthorityRecord,
-          ],
+        const collectionMetadata = await getMetadata(collectionMint.mint);
+        const collectionMasterEdition = await getMasterEdition(
+          collectionMint.mint,
         );
+        remainingAccounts = remainingAccounts.concat([
+          {
+            pubkey: collectionPDA,
+            isWritable: false,
+            isSigner: false,
+          },
+          {
+            pubkey: collectionMint.mint,
+            isWritable: false,
+            isSigner: false,
+          },
+          {
+            pubkey: collectionMetadata,
+            isWritable: false,
+            isSigner: false,
+          },
+          {
+            pubkey: collectionMasterEdition,
+            isWritable: false,
+            isSigner: false,
+          },
+          {
+            pubkey: collectionAuthorityRecord,
+            isWritable: false,
+            isSigner: false,
+          },
+        ]);
       }
     } catch (error) {
       console.error(error);
@@ -351,7 +369,6 @@ export async function mintV2(
   const [candyMachineCreator, creatorBump] = await getCandyMachineCreator(
     candyMachineAddress,
   );
-
   instructions.push(
     await anchorProgram.instruction.mintNft(creatorBump, {
       accounts: {

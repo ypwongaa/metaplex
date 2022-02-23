@@ -20,6 +20,7 @@ import { StorageType } from '../helpers/storage-type';
 import { AssetKey } from '../types';
 import { chunks, sleep } from '../helpers/various';
 import { nftStorageUpload } from '../helpers/upload/nft-storage';
+import { setCollection } from './set-collection';
 // import { setCollection } from './set-collection';
 
 export async function uploadV2({
@@ -159,9 +160,17 @@ export async function uploadV2({
           }),
         },
       );
+      const collection = await setCollection(
+        walletKeyPair,
+        anchorProgram,
+        res.candyMachine,
+      );
       cacheContent.program.uuid = res.uuid;
       cacheContent.program.candyMachine = res.candyMachine.toBase58();
       candyMachine = res.candyMachine;
+      console.log(collection);
+      cacheContent.program.collection =
+        collection.collectionMetadata.toBase58();
       log.info(
         `initialized config for a candy machine with publickey: ${res.candyMachine.toBase58()}`,
       );

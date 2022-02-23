@@ -232,6 +232,17 @@ export async function createConfigAccount(
   });
 }
 
+// export async function createCollectionPda(
+//   anchorProgram,
+//   payerWallet,
+//   seed,
+// ) {
+//   const size = 32;
+//   return anchor.web3.SystemProgram.createAccountWithSeed({
+//     basePubkey:
+//   })
+// }
+
 export async function createCandyMachineV2Account(
   anchorProgram,
   candyData: CandyMachineData,
