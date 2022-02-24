@@ -48,6 +48,7 @@ export async function uploadV2({
   anchorProgram,
   arweaveJwk,
   rateLimit,
+  collectionMintPubkey,
 }: {
   files: string[];
   cacheName: string;
@@ -85,6 +86,7 @@ export async function uploadV2({
   anchorProgram: Program;
   arweaveJwk: string;
   rateLimit: number;
+  collectionMintPubkey: null | PublicKey;
 }): Promise<boolean> {
   let uploadSuccessful = true;
   const savedContent = loadCache(cacheName, env);
@@ -164,6 +166,7 @@ export async function uploadV2({
         walletKeyPair,
         anchorProgram,
         res.candyMachine,
+        collectionMintPubkey,
       );
       cacheContent.program.uuid = res.uuid;
       cacheContent.program.candyMachine = res.candyMachine.toBase58();

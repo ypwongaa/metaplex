@@ -27,116 +27,127 @@ export async function setCollection(
   walletKeyPair: anchor.web3.Keypair,
   anchorProgram: Program,
   candyMachineAddress: PublicKey,
-  // collectionMint?: PublicKey,
+  collectionMint: null | PublicKey,
 ) {
-  const mint = anchor.web3.Keypair.generate();
-  // if (!collectionMint) {
-
-  // } else {
-
-  // }
-
+  const signers = [walletKeyPair];
   const wallet = new anchor.Wallet(walletKeyPair);
-
-  const userTokenAccountAddress = await Token.getAssociatedTokenAddress(
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-    TOKEN_PROGRAM_ID,
-    mint.publicKey,
-    wallet.publicKey,
-  );
+  let instructions = [];
+  let mintPubkey: PublicKey;
+  let metadataPubkey;
+  let masterEditionPubkey;
+  let collectionPDAPubkey;
+  let collectionAuthorityRecordPubkey;
 
   const candyMachine: any = await anchorProgram.account.candyMachine.fetch(
     candyMachineAddress,
   );
-
-  const signers = [mint, walletKeyPair];
-  log.info('here');
-  let instructions = [
-    anchor.web3.SystemProgram.createAccount({
-      fromPubkey: wallet.publicKey,
-      newAccountPubkey: mint.publicKey,
-      space: MintLayout.span,
-      lamports:
-        await anchorProgram.provider.connection.getMinimumBalanceForRentExemption(
-          MintLayout.span,
-        ),
-      programId: TOKEN_PROGRAM_ID,
-    }),
-    Token.createInitMintInstruction(
-      TOKEN_PROGRAM_ID,
-      mint.publicKey,
-      0,
-      wallet.publicKey,
-      wallet.publicKey,
-    ),
-    Token.createAssociatedTokenAccountInstruction(
+  if (!collectionMint) {
+    const mint = anchor.web3.Keypair.generate();
+    mintPubkey = mint.publicKey;
+    metadataPubkey = await getMetadata(mintPubkey);
+    masterEditionPubkey = await getMasterEdition(mintPubkey);
+    [collectionPDAPubkey] = await getCollectionPDA(candyMachineAddress);
+    [collectionAuthorityRecordPubkey] = await getCollectionAuthorityRecordPDA(
+      mintPubkey,
+      collectionPDAPubkey,
+    );
+    signers.push(mint);
+    const userTokenAccountAddress = await Token.getAssociatedTokenAddress(
       ASSOCIATED_TOKEN_PROGRAM_ID,
       TOKEN_PROGRAM_ID,
       mint.publicKey,
-      userTokenAccountAddress,
       wallet.publicKey,
-      wallet.publicKey,
-    ),
-    Token.createMintToInstruction(
-      TOKEN_PROGRAM_ID,
-      mint.publicKey,
-      userTokenAccountAddress,
-      wallet.publicKey,
-      [],
-      1,
-    ),
-  ];
+    );
 
-  const metadataPubkey = await getMetadata(mint.publicKey);
-  const masterEditionPubkey = await getMasterEdition(mint.publicKey);
-  const [collectionPDAPubkey] = await getCollectionPDA(candyMachineAddress);
-  const [collectionAuthorityRecordPubkey] =
-    await getCollectionAuthorityRecordPDA(mint.publicKey, collectionPDAPubkey);
-
-  const data = new DataV2({
-    symbol: candyMachine.data.symbol ?? '',
-    name: 'Collection NFT',
-    uri: '',
-    sellerFeeBasisPoints: candyMachine.data.seller_fee_basis_points,
-    creators: [
-      new Creator({
-        address: wallet.publicKey.toBase58(),
-        verified: true,
-        share: 100,
+    instructions = instructions.concat([
+      anchor.web3.SystemProgram.createAccount({
+        fromPubkey: wallet.publicKey,
+        newAccountPubkey: mintPubkey,
+        space: MintLayout.span,
+        lamports:
+          await anchorProgram.provider.connection.getMinimumBalanceForRentExemption(
+            MintLayout.span,
+          ),
+        programId: TOKEN_PROGRAM_ID,
       }),
-    ],
-    collection: null,
-    uses: null,
-  });
+      Token.createInitMintInstruction(
+        TOKEN_PROGRAM_ID,
+        mintPubkey,
+        0,
+        wallet.publicKey,
+        wallet.publicKey,
+      ),
+      Token.createAssociatedTokenAccountInstruction(
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        mintPubkey,
+        userTokenAccountAddress,
+        wallet.publicKey,
+        wallet.publicKey,
+      ),
+      Token.createMintToInstruction(
+        TOKEN_PROGRAM_ID,
+        mintPubkey,
+        userTokenAccountAddress,
+        wallet.publicKey,
+        [],
+        1,
+      ),
+    ]);
+    const data = new DataV2({
+      symbol: candyMachine.data.symbol ?? '',
+      name: 'Collection NFT',
+      uri: '',
+      sellerFeeBasisPoints: candyMachine.data.seller_fee_basis_points,
+      creators: [
+        new Creator({
+          address: wallet.publicKey.toBase58(),
+          verified: true,
+          share: 100,
+        }),
+      ],
+      collection: null,
+      uses: null,
+    });
 
-  instructions = instructions.concat(
-    new CreateMetadataV2(
-      { feePayer: wallet.publicKey },
-      {
-        metadata: metadataPubkey,
-        metadataData: data,
-        updateAuthority: wallet.publicKey,
-        mint: mint.publicKey,
-        mintAuthority: wallet.publicKey,
-      },
-    ).instructions,
-  );
+    instructions = instructions.concat(
+      new CreateMetadataV2(
+        { feePayer: wallet.publicKey },
+        {
+          metadata: metadataPubkey,
+          metadataData: data,
+          updateAuthority: wallet.publicKey,
+          mint: mintPubkey,
+          mintAuthority: wallet.publicKey,
+        },
+      ).instructions,
+    );
 
-  instructions = instructions.concat(
-    new CreateMasterEditionV3(
-      {
-        feePayer: wallet.publicKey,
-      },
-      {
-        edition: masterEditionPubkey,
-        metadata: metadataPubkey,
-        mint: mint.publicKey,
-        mintAuthority: wallet.publicKey,
-        updateAuthority: wallet.publicKey,
-        maxSupply: new anchor.BN(0),
-      },
-    ).instructions,
-  );
+    instructions = instructions.concat(
+      new CreateMasterEditionV3(
+        {
+          feePayer: wallet.publicKey,
+        },
+        {
+          edition: masterEditionPubkey,
+          metadata: metadataPubkey,
+          mint: mintPubkey,
+          mintAuthority: wallet.publicKey,
+          updateAuthority: wallet.publicKey,
+          maxSupply: new anchor.BN(0),
+        },
+      ).instructions,
+    );
+  } else {
+    mintPubkey = collectionMint;
+    metadataPubkey = await getMetadata(mintPubkey);
+    masterEditionPubkey = await getMasterEdition(mintPubkey);
+    [collectionPDAPubkey] = await getCollectionPDA(candyMachineAddress);
+    [collectionAuthorityRecordPubkey] = await getCollectionAuthorityRecordPDA(
+      mintPubkey,
+      collectionPDAPubkey,
+    );
+  }
 
   if (
     !(await anchorProgram.account.collectionPda.fetchNullable(
@@ -166,7 +177,7 @@ export async function setCollection(
         systemProgram: SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         metadata: metadataPubkey,
-        mint: mint.publicKey,
+        mint: mintPubkey,
         edition: masterEditionPubkey,
         collectionAuthorityRecord: collectionAuthorityRecordPubkey,
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
@@ -178,6 +189,7 @@ export async function setCollection(
   log.info('Metadata address: ', metadataPubkey.toBase58());
   log.info('Metadata authority: ', wallet.publicKey.toBase58());
   log.info('Master edition address: ', masterEditionPubkey.toBase58());
+  log.info('Mint address: ', mintPubkey.toBase58());
   log.info('Collection PDA address: ', collectionPDAPubkey.toBase58());
   log.info(
     'Collection authority record address: ',

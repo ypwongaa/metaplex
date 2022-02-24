@@ -8,6 +8,7 @@ import {
   chunks,
   fromUTF8Array,
   getCandyMachineV2Config,
+  parseCollectionMintPubkey,
   parsePrice,
   shuffle,
 } from './helpers/various';
@@ -43,6 +44,7 @@ import { StorageType } from './helpers/storage-type';
 import { getType } from 'mime';
 import { escapeRegExp } from 'lodash';
 import { setCollection } from './commands/set-collection';
+import { removeCollection } from './commands/remove-collection';
 program.version('0.0.2');
 const supportedImageTypes = {
   'image/png': 1,
@@ -96,9 +98,20 @@ programCommand('upload')
     myParseInt,
     25,
   )
+  .option(
+    '-m, --collection-mint <string>',
+    'optional collection mint ID. Will be randomly generated if not provided',
+  )
   .action(async (files: string[], options, cmd) => {
-    const { keypair, env, cacheName, configPath, rpcUrl, rateLimit } =
-      cmd.opts();
+    const {
+      keypair,
+      env,
+      cacheName,
+      configPath,
+      rpcUrl,
+      rateLimit,
+      collectionMint,
+    } = cmd.opts();
 
     const walletKeyPair = loadWalletKey(keypair);
     const anchorProgram = await loadCandyProgramV2(walletKeyPair, env, rpcUrl);
@@ -166,6 +179,9 @@ programCommand('upload')
         'aws selected as storage option but existing bucket name (--aws-s3-bucket) not provided.',
       );
     }
+
+    const collectionMintPubkey = parseCollectionMintPubkey(collectionMint);
+
     if (!Object.values(StorageType).includes(storage)) {
       throw new Error(
         `Storage option must either be ${Object.values(StorageType).join(
@@ -257,6 +273,7 @@ programCommand('upload')
         uuid,
         arweaveJwk,
         rateLimit,
+        collectionMintPubkey,
       });
     } catch (err) {
       log.warn('upload was not successful, please re-run.', err);
@@ -861,7 +878,35 @@ programCommand('mint_one_token')
 
     log.info('mint_one_token finished', tx);
   });
+
 programCommand('set_collection')
+  .option(
+    '-m, --collection-mint <string>',
+    'optional collection mint ID. Will be randomly generated if not provided',
+  )
+  .option(
+    '-r, --rpc-url <string>',
+    'custom rpc url since this is a heavy command',
+  )
+  .action(async (directory, cmd) => {
+    const { keypair, env, cacheName, rpcUrl, collectionMint } = cmd.opts();
+
+    const cacheContent = loadCache(cacheName, env);
+    const candyMachine = new PublicKey(cacheContent.program.candyMachine);
+    const walletKeyPair = loadWalletKey(keypair);
+    const anchorProgram = await loadCandyProgramV2(walletKeyPair, env, rpcUrl);
+    const collectionMintPubkey = parseCollectionMintPubkey(collectionMint);
+    const tx = await setCollection(
+      walletKeyPair,
+      anchorProgram,
+      candyMachine,
+      collectionMintPubkey,
+    );
+
+    log.info('set collection finished', tx);
+  });
+
+programCommand('remove_collection')
   .option(
     '-r, --rpc-url <string>',
     'custom rpc url since this is a heavy command',
@@ -873,9 +918,13 @@ programCommand('set_collection')
     const candyMachine = new PublicKey(cacheContent.program.candyMachine);
     const walletKeyPair = loadWalletKey(keypair);
     const anchorProgram = await loadCandyProgramV2(walletKeyPair, env, rpcUrl);
-    const tx = await setCollection(walletKeyPair, anchorProgram, candyMachine);
+    const tx = await removeCollection(
+      walletKeyPair,
+      anchorProgram,
+      candyMachine,
+    );
 
-    log.info('mint_one_token finished', tx);
+    log.info('remove collection finished', tx);
   });
 
 programCommand('mint_multiple_tokens')
